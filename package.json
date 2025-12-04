@@ -1,5 +1,21 @@
 {
   "dependencies": {
-    "primeicons": "^7.0.0"
+    "axios": "^1.13.2",
+    "cors": "^2.8.5",
+    "express": "^5.2.1",
+    "mssql": "^12.2.0",
+    "primeicons": "^7.0.0",
+    "typeorm": "^0.3.28"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.10.1",
+    "reflect-metadata": "^0.2.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "scripts": {
+    "dev": "ts-node ./backend/server.ts"
   }
 }

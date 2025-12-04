@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from "vue";
+import {ToastifyContainer} from "vue3-toastify";
 
 const items = ref([
   {
@@ -17,4 +18,5 @@ const items = ref([
     <Menubar :model="items" />
   </div>
   <RouterView></RouterView>
+  <ToastifyContainer></ToastifyContainer>
 </template>

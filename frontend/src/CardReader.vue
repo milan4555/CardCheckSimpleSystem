@@ -1,44 +1,56 @@
 <script setup>
 import {nextTick, onMounted, ref, watch} from "vue";
+import axios from "axios";
+import {toast} from "vue3-toastify";
 
-  const colleagues = ref([
-    { name: "John Smith", regNumber: "4729", organization: "TechCorp", position: "Software Engineer" },
-    { name: "Sarah Johnson", regNumber: "8135", organization: "DataWorks", position: "Data Analyst" },
-    { name: "Mike Davis", regNumber: "2901", organization: "Innovate Inc", position: "Project Manager" },
-    { name: "Emily Chen", regNumber: "6478", organization: "Global Solutions", position: "UX Designer" },
-    { name: "David Wilson", regNumber: "1352", organization: "SecureNet", position: "DevOps Engineer" },
-    { name: "Lisa Brown", regNumber: "5916", organization: "FinTech Ltd", position: "Product Owner" },
-    { name: "Robert Taylor", regNumber: "3084", organization: "CloudPeak", position: "Backend Developer" },
-    { name: "Anna Martinez", regNumber: "7620", organization: "HealthSync", position: "Frontend Developer" },
-    { name: "James Anderson", regNumber: "1947", organization: "AutoDrive", position: "QA Engineer" },
-    { name: "Maria Garcia", regNumber: "4853", organization: "EduTech", position: "Business Analyst" },
-    { name: "Chris Lee", regNumber: "2719", organization: "GreenEnergy", position: "Full Stack Developer" }
-  ]);
-
-  const selectedEvent = ref(null)
-  const events = ref([
-    { name: "2024 - Nőnap", value: 1},
-    { name: "2024 - Mikuláscsomag", value: 2},
-    { name: "2024 - Karácsonyi buli", value: 3},
-    { name: "2025 - Nőnap", value: 4},
-    { name: "2025 - Mikuláscsomag", value: 5},
-    { name: "2025 - Karácsonyi buli", value: 6},
-  ])
-
-  const lastThree = ref(colleagues.value.splice(0,3));
+  const colleagues = ref(null);
+  const selectedEvent = ref(null);
+  const selectedEventName = ref(null);
+  const events = ref(null);
+  const lastThree = ref(null);
   const message = ref("Érinthetik a következő kártyát!");
   const colorClass = ref("bg-green-500/80");
   const cardInput = ref("");
-  const inputRef = ref(null)
+  const inputRef = ref(null);
+  const drawerVisible = ref(false);
+  const newEventInput = ref("");
 
-  function readCard() {
+  async function readCard() {
+    if (selectedEvent.value === null) {
+      toast.error("Kérlek először válassz ki egy eseményt az listából!");
+      cardInput.value = "";
+      return;
+    }
     message.value = "Olvasás folyamatban! Kérlek várj!"
     colorClass.value = "bg-red-500/80"
-    setTimeout(() => {
-      cardInput.value = ""
-      message.value = "Érinthetik a következő kártyát!"
-      colorClass.value = "bg-green-500/80"
-    }, 1000)
+    const cardNumber = cardInput.value.slice(-4);
+
+    try {
+      const response = await axios.get("http://localhost:3000/keycloak/getUserByCard/" + cardNumber)
+      const employee = response.data.employee;
+      const regNumber = employee.attributes.regNumber[0];
+      const eventLogAddParams = {
+        "regNumber": regNumber,
+        "eventId": selectedEvent.value,
+        "createdAt": new Date()
+      }
+      const eventLogAddResponse = await axios.post("http://localhost:3001/event-log/add", eventLogAddParams)
+      if (eventLogAddResponse.data.type === 0) {
+        toast.error(eventLogAddResponse.data.message);
+      } else {
+        colleagues.value.push({
+            name: employee.lastName + " " + employee.firstName,
+            regNumber: employee.attributes.regNumber[0],
+            position: employee.attributes.position[0],
+            organization: employee.attributes.organization[0]
+        })
+        lastThree.value = colleagues.value.reverse().slice(0, 3);
+      }
+    } catch (e) { console.log("Error: " + e) }
+
+    cardInput.value = ""
+    message.value = "Érinthetik a következő kártyát!"
+    colorClass.value = "bg-green-500/80"
   }
 
   const focusInput = async () => {
@@ -46,22 +58,44 @@ import {nextTick, onMounted, ref, watch} from "vue";
     inputRef.value.$el.focus()
   }
 
+  async function getAllEvents () {
+    try {
+      const response = await axios.get('http://localhost:3001/events/all');
+      events.value = response.data.events
+    } catch (e) {
+      console.log("Error: " + e);
+    }
+  }
+
+  async function addNewEvent() {
+    try {
+      const response = await axios.post("http://localhost:3001/events/add", {
+        name: newEventInput.value,
+        createdAt: new Date
+      })
+      events.value.push(response.data)
+      newEventInput.value = ""
+    } catch(e) {
+      console.log("Error: " + e);
+    }
+  }
+
+  const onEventChange = async (event) => {
+    const response = await axios.get("http://localhost:3001/event-log/getList/" + event.value);
+    colleagues.value = response.data
+    lastThree.value = response.data.reverse().slice(0, 3);
+  }
+
   watch(cardInput, () => { focusInput() })
 
-  onMounted(focusInput)
+  onMounted(focusInput);
+  getAllEvents();
 </script>
 <template>
   <div class="h-screen grid grid-cols-2" @click="focusInput">
     <div class="h-screen flex flex-col">
-      <div class="flex-1">
-        <Listbox
-          v-model="selectedEvent"
-          :options="events"
-          optionLabel="name"
-          optionValue="value"
-        >
-        </Listbox>
-      </div>
+      <p>{{ selectedEventName }}</p>
+      <Button icon="pi pi-arrow-right" @click="drawerVisible = true" />
       <div class="flex-1" :class="colorClass">
         <p class="text-center" style="font-size: 26pt">
           {{ message }}
@@ -106,5 +140,21 @@ import {nextTick, onMounted, ref, watch} from "vue";
       </div>
     </div>
   </div>
+  <Drawer v-model:visible="drawerVisible" header="Események listája">
+    <Listbox
+        v-model="selectedEvent"
+        @change="onEventChange($event)"
+        :options="events"
+        optionLabel="name"
+        optionValue="id"
+        filter
+        listStyle="max-height:500px"
+    >
+    </Listbox>
+    <div class="flex justify-around pt-4">
+      <InputText v-model="newEventInput" type="text" placeholder="Mi legyen az új esemény?"/>
+      <Button icon="pi pi-plus" @click="addNewEvent" :disabled="!newEventInput || newEventInput.trim() === ''"></Button>
+    </div>
+  </Drawer>
 </template>
 <style></style>
