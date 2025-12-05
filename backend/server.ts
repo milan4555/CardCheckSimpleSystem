@@ -41,7 +41,7 @@ app.use(express.json());
 
 app.get('/events/all', async (req, res) => {
     try {
-        const events = await eventRepo.find();
+        const events = await eventRepo.find({ order: { createdAt: "DESC" } });
         res.status(200).json({ events: events })
     } catch (e: any) {
         res.status(500).json({ error: e.message });

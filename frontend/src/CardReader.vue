@@ -14,7 +14,9 @@ import {toast} from "vue3-toastify";
   const inputRef = ref(null);
   const drawerVisible = ref(false);
   const newEventInput = ref("");
-  const loading = ref(false)
+  const loading = ref(false);
+  const keycloakUsers = ref(null);
+  const selectedEmployeeRegNumber = ref(null)
 
   async function readCard() {
     if (selectedEvent.value === null) {
@@ -33,29 +35,46 @@ import {toast} from "vue3-toastify";
         toast.error(`Az adott kártyaszám (${cardNumber}) nem létezik a rendszerben!`)
         return;
       }
-      const regNumber = employee.attributes.regNumber[0];
-      const eventLogAddParams = {
-        "regNumber": regNumber,
-        "eventId": selectedEvent.value,
-        "createdAt": new Date()
-      }
-      const eventLogAddResponse = await axios.post("http://localhost:3001/event-log/add", eventLogAddParams)
-      if (eventLogAddResponse.data.type === 0) {
-        toast.error(eventLogAddResponse.data.message);
-      } else {
-        colleagues.value.push({
-            name: employee.lastName + " " + employee.firstName,
-            regNumber: employee.attributes.regNumber[0],
-            position: employee.attributes.position[0],
-            organization: employee.attributes.organization[0]
-        })
-        lastThree.value = colleagues.value.reverse().slice(0, 3);
-      }
+      await addNewLog(employee);
     } catch (e) { console.log("Error: " + e) }
 
     cardInput.value = ""
     message.value = "Érinthetik a következő kártyát!"
     colorClass.value = "bg-green-500/80"
+  }
+
+  async function addManually() {
+    if (selectedEvent.value === null) {
+      toast.error("Kérlek először válassz ki egy eseményt az listából!");
+      cardInput.value = "";
+      return;
+    }
+    try {
+      const response = await axios.get("http://localhost:3000/keycloak/userInfo/" + selectedEmployeeRegNumber.value);
+      await addNewLog(response.data);
+    } catch(e) {}
+    selectedEmployeeRegNumber.value = null
+  }
+
+  async function addNewLog(employee) {
+    const regNumber = employee.attributes.regNumber[0];
+    const eventLogAddParams = {
+      "regNumber": regNumber,
+      "eventId": selectedEvent.value,
+      "createdAt": new Date()
+    }
+    const eventLogAddResponse = await axios.post("http://localhost:3001/event-log/add", eventLogAddParams)
+    if (eventLogAddResponse.data.type === 0) {
+      toast.error(eventLogAddResponse.data.message);
+    } else {
+      colleagues.value.push({
+        name: employee.lastName + " " + employee.firstName,
+        regNumber: employee.attributes.regNumber[0],
+        position: employee.attributes.position[0],
+        organization: employee.attributes.organization[0]
+      })
+      lastThree.value = colleagues.value.reverse().slice(0, 3);
+    }
   }
 
   const focusInput = async () => {
@@ -91,15 +110,31 @@ import {toast} from "vue3-toastify";
     colleagues.value = response.data
     lastThree.value = response.data.reverse().slice(0, 3);
     selectedEventName.value = events.value.filter(e => e.id == selectedEvent.value)
-    if (!selectedEventName.value.length) { selectedEventName.value == null }
+    if (!selectedEventName.value.length) { selectedEventName.value = null }
     drawerVisible.value = false;
     loading.value = false;
   }
 
+  async function getKeycloakUsers() {
+    try {
+      const response = await axios.get("http://localhost:3000/keycloak/getAllUsers");
+      keycloakUsers.value = response.data.map(user => ({
+        name: `${user.lastName} ${user.firstName}`,
+        regNumber: (user.attributes && user.attributes.regNumber) ? user.attributes.regNumber[0] : ''
+      }))
+      keycloakUsers.value = keycloakUsers.value.filter(u => { return u.regNumber !== ''})
+    } catch (e) {
+      console.log(`Error: ${e}`);
+    }
+  }
+
   watch(cardInput, () => { focusInput() })
 
-  onMounted(focusInput);
-  getAllEvents();
+  onMounted(async () => {
+     await getAllEvents();
+     await getKeycloakUsers();
+     await focusInput();
+  });
 </script>
 <template>
   <div @click="focusInput" style="height: 100vh">
@@ -107,23 +142,34 @@ import {toast} from "vue3-toastify";
       <Card style="width: 70%">
         <template #header>
           <h1 class="text-center font-bold pb-3" style="font-size: 30pt">
-            <span v-if="!selectedEventName" style="color: red">Nincs kiválaszott esemény</span>
-            <span v-if="selectedEventName">{{ selectedEventName[0].name }}</span>
+            <span v-if="!selectedEventName || false" style="color: red">Nincs kiválaszott esemény</span>
+            <span v-if="selectedEventName && true">{{ selectedEventName[0].name }}</span>
           </h1>
         </template>
         <template #content>
           <div>
-            <div class="flex-1 p-4" :class="colorClass">
-              <p class="text-center" style="font-size: 26pt">
-                {{ message }}
-              </p>
-              <InputText
-                  ref="inputRef"
-                  v-model="cardInput"
-                  class="w-full"
-                  autofocus
-                  @keyup.enter="readCard"
-              />
+            <div class="flex gap-2">
+              <div :class="colorClass" class="p-3 flex-1 border-1 rounded-lg">
+                <p class="text-center" style="font-size: 26pt">
+                  {{ message }}
+                </p>
+                <InputText
+                    ref="inputRef"
+                    v-model="cardInput"
+                    class="w-full"
+                    autofocus
+                    @keyup.enter="readCard"
+                />
+              </div>
+              <div class="flex-1 p-3 border-1 rounded-lg">
+                <p class="text-center" style="font-size: 26pt">
+                  Manuális hozzáadás listából
+                </p>
+                <div class="flex gap-2">
+                  <Select v-model="selectedEmployeeRegNumber" :options="keycloakUsers" optionLabel="name" optionValue="regNumber" class="flex-1" placeholder="Válassz kollégát!" filter></Select>
+                  <Button :disabled="!selectedEmployeeRegNumber || selectedEmployeeRegNumber.trim() === ''"  icon="pi pi-plus" @click="addManually"></Button>
+                </div>
+              </div>
             </div>
           </div>
           <div class="flex gap-2 py-4">
@@ -144,7 +190,7 @@ import {toast} from "vue3-toastify";
             <DataTable
                 :value="colleagues"
                 scrollable
-                scroll-height="80vh"
+                scroll-height="300px"
             >
               <template #empty>Nincsenek felvett emberek a listában!</template>
               <Column field="name" header="Név"></Column>
