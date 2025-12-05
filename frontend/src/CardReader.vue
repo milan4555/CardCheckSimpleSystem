@@ -14,6 +14,7 @@ import {toast} from "vue3-toastify";
   const inputRef = ref(null);
   const drawerVisible = ref(false);
   const newEventInput = ref("");
+  const loading = ref(false)
 
   async function readCard() {
     if (selectedEvent.value === null) {
@@ -28,6 +29,10 @@ import {toast} from "vue3-toastify";
     try {
       const response = await axios.get("http://localhost:3000/keycloak/getUserByCard/" + cardNumber)
       const employee = response.data.employee;
+      if (!response.data.employee) {
+        toast.error(`Az adott kártyaszám (${cardNumber}) nem létezik a rendszerben!`)
+        return;
+      }
       const regNumber = employee.attributes.regNumber[0];
       const eventLogAddParams = {
         "regNumber": regNumber,
@@ -81,9 +86,14 @@ import {toast} from "vue3-toastify";
   }
 
   const onEventChange = async (event) => {
+    loading.value = true;
     const response = await axios.get("http://localhost:3001/event-log/getList/" + event.value);
     colleagues.value = response.data
     lastThree.value = response.data.reverse().slice(0, 3);
+    selectedEventName.value = events.value.filter(e => e.id == selectedEvent.value)
+    if (!selectedEventName.value.length) { selectedEventName.value == null }
+    drawerVisible.value = false;
+    loading.value = false;
   }
 
   watch(cardInput, () => { focusInput() })
@@ -92,52 +102,63 @@ import {toast} from "vue3-toastify";
   getAllEvents();
 </script>
 <template>
-  <div class="h-screen grid grid-cols-2" @click="focusInput">
-    <div class="h-screen flex flex-col">
-      <p>{{ selectedEventName }}</p>
-      <Button icon="pi pi-arrow-right" @click="drawerVisible = true" />
-      <div class="flex-1" :class="colorClass">
-        <p class="text-center" style="font-size: 26pt">
-          {{ message }}
-        </p>
-        <InputText
-            ref="inputRef"
-            v-model="cardInput"
-            class="w-full"
-            autofocus
-            @keyup.enter="readCard"
-        />
-        <p class="text-center" style="font-size: 22px">Utolsó 3 kolléga információja</p>
-        <div class="flex gap-2 px-2">
-          <div v-for="c in lastThree" class="w-full">
-            <Card>
-              <template #title>
-                <div class="text-center">{{ c.name }}</div>
-              </template>
-              <template #content>
-                <span class="font-bold">Törzsszám: </span>{{ c.regNumber }}<br>
-                <span class="font-bold">Osztály: </span>{{ c.organization }}<br>
-                <span class="font-bold">Pozíció: </span>{{ c.position}}
-              </template>
-            </Card>
+  <div @click="focusInput" style="height: 100vh">
+    <div class="flex justify-center pt-20">
+      <Card style="width: 70%">
+        <template #header>
+          <h1 class="text-center font-bold pb-3" style="font-size: 30pt">
+            <span v-if="!selectedEventName" style="color: red">Nincs kiválaszott esemény</span>
+            <span v-if="selectedEventName">{{ selectedEventName[0].name }}</span>
+          </h1>
+        </template>
+        <template #content>
+          <div>
+            <div class="flex-1 p-4" :class="colorClass">
+              <p class="text-center" style="font-size: 26pt">
+                {{ message }}
+              </p>
+              <InputText
+                  ref="inputRef"
+                  v-model="cardInput"
+                  class="w-full"
+                  autofocus
+                  @keyup.enter="readCard"
+              />
+            </div>
           </div>
-        </div>
-      </div>
-    </div>
-    <div class="p-5">
-      <DataTable
-          :value="colleagues"
-          scrollable
-          scroll-height="80vh"
-      >
-        <Column field="name" header="Név"></Column>
-        <Column field="regNumber" header="Törzsszám"></Column>
-        <Column field="organization" header="Osztály"></Column>
-        <Column field="position" header="Pozíció"></Column>
-      </DataTable>
-      <div class="text-center p-5">
-        <Button label="Exportálás Excelbe"></Button>
-      </div>
+          <div class="flex gap-2 py-4">
+            <div v-for="c in lastThree" class="w-full">
+              <Card>
+                <template #title>
+                  <div class="text-center">{{ c.name }}</div>
+                </template>
+                <template #content>
+                  <span class="font-bold">Törzsszám: </span>{{ c.regNumber }}<br>
+                  <span class="font-bold">Osztály: </span>{{ c.organization }}<br>
+                  <span class="font-bold">Pozíció: </span>{{ c.position}}
+                </template>
+              </Card>
+            </div>
+          </div>
+          <div class="pt-3">
+            <DataTable
+                :value="colleagues"
+                scrollable
+                scroll-height="80vh"
+            >
+              <template #empty>Nincsenek felvett emberek a listában!</template>
+              <Column field="name" header="Név"></Column>
+              <Column field="regNumber" header="Törzsszám"></Column>
+              <Column field="organization" header="Osztály"></Column>
+              <Column field="position" header="Pozíció"></Column>
+            </DataTable>
+            <div class="flex justify-center gap-2 mt-3">
+              <Button label="Események listája" icon="pi pi-list" @click="drawerVisible = true" />
+              <Button label="Exportálás Excelbe" severity="success" icon="pi pi-file-excel"></Button>
+            </div>
+          </div>
+        </template>
+      </Card>
     </div>
   </div>
   <Drawer v-model:visible="drawerVisible" header="Események listája">

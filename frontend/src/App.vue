@@ -14,9 +14,6 @@ const items = ref([
 ]);
 </script>
 <template>
-  <div class="card">
-    <Menubar :model="items" />
-  </div>
   <RouterView></RouterView>
   <ToastifyContainer></ToastifyContainer>
 </template>
