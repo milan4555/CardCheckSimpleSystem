@@ -75,7 +75,7 @@ app.delete('/events/delete/:id', async (req, res) => {
 
 app.get('/event-log/getList/:eventId', async(req, res) => {
     try {
-        const eventLogList = await eventLogRepo.findBy({ eventId: parseInt(req.params.eventId) })
+        const eventLogList = await eventLogRepo.find({where: { eventId: parseInt(req.params.eventId) }, order: { createdAt: "ASC" }})
         const keycloakUsers = await axios.get("http://localhost:3000/keycloak/getAllUsers");
         const userList: any[] = [];
         eventLogList.forEach(r => {

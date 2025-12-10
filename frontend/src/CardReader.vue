@@ -9,7 +9,7 @@ import {toast} from "vue3-toastify";
   const events = ref(null);
   const lastThree = ref(null);
   const message = ref("Érinthetik a következő kártyát!");
-  const colorClass = ref("bg-green-500/80");
+  const colorClass = ref("!bg-green-500/80");
   const cardInput = ref("");
   const inputRef = ref(null);
   const drawerVisible = ref(false);
@@ -25,11 +25,11 @@ import {toast} from "vue3-toastify";
       return;
     }
     message.value = "Olvasás folyamatban! Kérlek várj!"
-    colorClass.value = "bg-red-500/80"
+    colorClass.value = "!bg-red-500/80"
     const cardNumber = cardInput.value.slice(-4);
 
     try {
-      const response = await axios.get("http://localhost:3000/keycloak/getUserByCard/" + cardNumber)
+      const response = await axios.get("http://10.1.21.6:3000/keycloak/getUserByCard/" + cardNumber)
       const employee = response.data.employee;
       if (!response.data.employee) {
         toast.error(`Az adott kártyaszám (${cardNumber}) nem létezik a rendszerben!`)
@@ -40,7 +40,7 @@ import {toast} from "vue3-toastify";
 
     cardInput.value = ""
     message.value = "Érinthetik a következő kártyát!"
-    colorClass.value = "bg-green-500/80"
+    colorClass.value = "!bg-green-500/80"
   }
 
   async function addManually() {
@@ -50,7 +50,7 @@ import {toast} from "vue3-toastify";
       return;
     }
     try {
-      const response = await axios.get("http://localhost:3000/keycloak/userInfo/" + selectedEmployeeRegNumber.value);
+      const response = await axios.get("http://10.1.21.6:3000/keycloak/userInfo/" + selectedEmployeeRegNumber.value);
       await addNewLog(response.data);
     } catch(e) {}
     selectedEmployeeRegNumber.value = null
@@ -63,7 +63,7 @@ import {toast} from "vue3-toastify";
       "eventId": selectedEvent.value,
       "createdAt": new Date()
     }
-    const eventLogAddResponse = await axios.post("http://localhost:3001/event-log/add", eventLogAddParams)
+    const eventLogAddResponse = await axios.post("http://10.1.21.6:3001/event-log/add", eventLogAddParams)
     if (eventLogAddResponse.data.type === 0) {
       toast.error(eventLogAddResponse.data.message);
     } else {
@@ -84,7 +84,7 @@ import {toast} from "vue3-toastify";
 
   async function getAllEvents () {
     try {
-      const response = await axios.get('http://localhost:3001/events/all');
+      const response = await axios.get('http://10.1.21.6:3001/events/all');
       events.value = response.data.events
     } catch (e) {
       console.log("Error: " + e);
@@ -93,7 +93,7 @@ import {toast} from "vue3-toastify";
 
   async function addNewEvent() {
     try {
-      const response = await axios.post("http://localhost:3001/events/add", {
+      const response = await axios.post("http://10.1.21.6:3001/events/add", {
         name: newEventInput.value,
         createdAt: new Date
       })
@@ -106,7 +106,7 @@ import {toast} from "vue3-toastify";
 
   const onEventChange = async (event) => {
     loading.value = true;
-    const response = await axios.get("http://localhost:3001/event-log/getList/" + event.value);
+    const response = await axios.get("http://10.1.21.6:3001/event-log/getList/" + event.value);
     colleagues.value = response.data
     lastThree.value = response.data.reverse().slice(0, 3);
     selectedEventName.value = events.value.filter(e => e.id == selectedEvent.value)
@@ -117,7 +117,7 @@ import {toast} from "vue3-toastify";
 
   async function getKeycloakUsers() {
     try {
-      const response = await axios.get("http://localhost:3000/keycloak/getAllUsers");
+      const response = await axios.get("http://10.1.21.6:3000/keycloak/getAllUsers");
       keycloakUsers.value = response.data.map(user => ({
         name: `${user.lastName} ${user.firstName}`,
         regNumber: (user.attributes && user.attributes.regNumber) ? user.attributes.regNumber[0] : ''
@@ -138,18 +138,18 @@ import {toast} from "vue3-toastify";
 </script>
 <template>
   <div @click="focusInput" style="height: 100vh">
-    <div class="flex justify-center pt-20">
+    <div class="flex justify-center pt-4">
       <Card style="width: 70%">
         <template #header>
           <h1 class="text-center font-bold pb-3" style="font-size: 30pt">
-            <span v-if="!selectedEventName || false" style="color: red">Nincs kiválaszott esemény</span>
+            <span v-if="!selectedEventName || false" class="text-[--p-primary-color]">Nincs kiválaszott esemény</span>
             <span v-if="selectedEventName && true">{{ selectedEventName[0].name }}</span>
           </h1>
         </template>
         <template #content>
           <div>
             <div class="flex gap-2">
-              <div :class="colorClass" class="p-3 flex-1 border-1 rounded-lg">
+              <div class="p-3 p-card flex-1 rounded-lg" :class="colorClass">
                 <p class="text-center" style="font-size: 26pt">
                   {{ message }}
                 </p>
@@ -161,7 +161,7 @@ import {toast} from "vue3-toastify";
                     @keyup.enter="readCard"
                 />
               </div>
-              <div class="flex-1 p-3 border-1 rounded-lg">
+              <div class="flex-1 p-card p-3 rounded-lg">
                 <p class="text-center" style="font-size: 26pt">
                   Manuális hozzáadás listából
                 </p>

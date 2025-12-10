@@ -1,1 +1,30 @@
 @import "tailwindcss";
+@import "@fontsource/sansation";
+
+body {
+    font-family: Sansation, sans-serif;
+    color: var(--color-text);
+    background-color: var(--p-surface-ground);
+    transition: color 0.5s, background-color 0.5s;
+    line-height: 1.6;
+}
+
+@supports (corner-shape: squircle){
+    :root{
+        --squircle-radius-xs:1rem;
+        --squircle-radius-sm:2rem;
+        --squircle-radius-md:3rem;
+        --squircle-radius-lg:4rem;
+        --squircle-radius-xl:5rem;
+    }
+}
+@supports not(corner-shape: squircle){
+    :root{
+        --squircle-radius-xs:0.25rem;
+        --squircle-radius-sm:0.5rem;
+        --squircle-radius-md:1rem;
+        --squircle-radius-lg:1.5rem;
+        --squircle-radius-xl:2rem;
+    }
+
+}
